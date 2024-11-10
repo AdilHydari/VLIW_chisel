@@ -4,22 +4,17 @@
 [0m[[0m[31merror[0m] [0m[0m/home/patmos/t-crest/patmos/isasim/src/main/scala/patsim/PatSim.scala:179:20: not found: value decodeInstruction[0m
 [0m[[0m[31merror[0m] [0m[0m        decodedB = decodeInstruction(instrB)[0m
 [0m[[0m[31merror[0m] [0m[0m                   ^[0m
-[0m[[0m[31merror[0m] [0m[0m/home/patmos/t-crest/patmos/isasim/src/main/scala/patsim/PatSim.scala:895:7: type mismatch;[0m
-[0m[[0m[31merror[0m] [0m[0m found   : Unit[0m
-[0m[[0m[31merror[0m] [0m[0m required: patsim.DecodedInstruction[0m
-[0m[[0m[31merror[0m] [0m[0m      }[0m
-[0m[[0m[31merror[0m] [0m[0m      ^[0m
-[0m[[0m[31merror[0m] [0m[0m/home/patmos/t-crest/patmos/isasim/src/main/scala/patsim/PatSim.scala:910:23: value tick is not a member of patsim.PatSim[0m
-[0m[[0m[31merror[0m] [0m[0m            simulator.tick()[0m
-[0m[[0m[31merror[0m] [0m[0m                      ^[0m
-[0m[[0m[31merror[0m] [0m[0m/home/patmos/t-crest/patmos/isasim/src/main/scala/patsim/PatSim.scala:949:5: type mismatch;[0m
+[0m[[0m[31merror[0m] [0m[0m/home/patmos/t-crest/patmos/isasim/src/main/scala/patsim/PatSim.scala:719:5: type mismatch;[0m
 [0m[[0m[31merror[0m] [0m[0m found   : Unit[0m
 [0m[[0m[31merror[0m] [0m[0m required: patsim.DecodedInstruction[0m
 [0m[[0m[31merror[0m] [0m[0m    }[0m
 [0m[[0m[31merror[0m] [0m[0m    ^[0m
-[0m[[0m[31merror[0m] [0m[0m/home/patmos/t-crest/patmos/isasim/src/main/scala/patsim/PatSim.scala:950:3: type mismatch;[0m
+[0m[[0m[31merror[0m] [0m[0m/home/patmos/t-crest/patmos/isasim/src/main/scala/patsim/PatSim.scala:734:21: value tick is not a member of patsim.PatSim[0m
+[0m[[0m[31merror[0m] [0m[0m          simulator.tick()[0m
+[0m[[0m[31merror[0m] [0m[0m                    ^[0m
+[0m[[0m[31merror[0m] [0m[0m/home/patmos/t-crest/patmos/isasim/src/main/scala/patsim/PatSim.scala:773:3: type mismatch;[0m
 [0m[[0m[31merror[0m] [0m[0m found   : Unit[0m
 [0m[[0m[31merror[0m] [0m[0m required: (Int, Int, Boolean)[0m
 [0m[[0m[31merror[0m] [0m[0m  }[0m
 [0m[[0m[31merror[0m] [0m[0m  ^[0m
-[0m[[0m[31merror[0m] [0m[0m6 errors found[0m
+[0m[[0m[31merror[0m] [0m[0m5 errors found[0m

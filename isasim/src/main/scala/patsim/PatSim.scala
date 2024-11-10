@@ -661,289 +661,112 @@ class PatSim(instructions: Array[Int]) {
       }
 
       /**
-       * Write Back Stage
+       * Tick Function
        */
-      def writeBack(): Unit = {
-        // Handle Write Back for Instruction A
-        if (mem_wb.validA && mem_wb.rdA != 0) {
-          reg(mem_wb.rdA) = mem_wb.memDataA
-          println(s"[Write Back] Register R${mem_wb.rdA} updated to ${mem_wb.memDataA} from MEM_WB")
-        }
+      def tick(): Unit = {
+        Metrics.totalCycles += 1
+        println(s"\n=== Tick ${Metrics.totalCycles} ===")
 
-        // Handle Write Back for Instruction B
-        if (mem_wb.validB && mem_wb.rdB != 0) {
-          reg(mem_wb.rdB) = mem_wb.memDataB
-          println(s"[Write Back] Register R${mem_wb.rdB} updated to ${mem_wb.memDataB} from MEM_WB")
-        }
+        // Write Back Stage
+        writeBack()
 
-        // Update MEM_WB from EX_MEM
-        mem_wb = MEM_WB(
-          memDataA = ex_mem.memDataA,
-          rdA = ex_mem.rdA,
-          validA = ex_mem.validA,
-          memDataB = ex_mem.memDataB,
-          rdB = ex_mem.rdB,
-          validB = ex_mem.validB
-        )
-      }
+        // MEM Stage
+        memStage()
 
-      /**
-       * Forwarding Unit
-       */
-      def ForwardingUnit(rs: Int): Int = {
-        // Forwarding priority: EX_WB > MEM_WB > EX_MEM > DE_EX
-        // Check EX_WB first
-        if (rs == ex_wb.rdA && ex_wb.validA) {
-          println(s"[Forwarding Unit] Forwarding from EX/WB Stage: R$rs = ${ex_wb.memDataA}")
-          ex_wb.memDataA
-        }
-        else if (rs == ex_wb.rdB && ex_wb.validB) {
-          println(s"[Forwarding Unit] Forwarding from EX/WB Stage: R$rs = ${ex_wb.memDataB}")
-          ex_wb.memDataB
-        }
-        // Then check MEM_WB
-        else if (rs == mem_wb.rdA && mem_wb.validA) {
-          println(s"[Forwarding Unit] Forwarding from MEM/WB Stage: R$rs = ${mem_wb.memDataA}")
-          mem_wb.memDataA
-        }
-        else if (rs == mem_wb.rdB && mem_wb.validB) {
-          println(s"[Forwarding Unit] Forwarding from MEM/WB Stage: R$rs = ${mem_wb.memDataB}")
-          mem_wb.memDataB
-        }
-        // Then check EX_MEM
-        else if (rs == ex_mem.rdA && ex_mem.validA) {
-          println(s"[Forwarding Unit] Forwarding from EX/MEM Stage: R$rs = ${ex_mem.memDataA}")
-          ex_mem.memDataA
-        }
-        else if (rs == ex_mem.rdB && ex_mem.validB) {
-          println(s"[Forwarding Unit] Forwarding from EX/MEM Stage: R$rs = ${ex_mem.memDataB}")
-          ex_mem.memDataB
-        }
-        // Finally, check DE_EX (for newer instructions in the pipeline)
-        else if (rs == de_ex.decodedA.rd && de_ex.decodedA.result != 0 && !de_ex.decodedA.isNop) {
-          println(s"[Forwarding Unit] Forwarding from DE/EX Stage: R$rs = ${de_ex.decodedA.result}")
-          de_ex.decodedA.result
-        }
-        else if (rs == de_ex.decodedB.rd && de_ex.decodedB.result != 0 && !de_ex.decodedB.isNop) {
-          println(s"[Forwarding Unit] Forwarding from DE/EX Stage: R$rs = ${de_ex.decodedB.result}")
-          de_ex.decodedB.result
-        }
-        // Default to Register File
-        else {
-          println(s"[Forwarding Unit] No forwarding required for R$rs. Using Register File: R$rs = ${reg(rs)}")
-          reg(rs)
-        }
-      }
+        // Execute Stage
+        executeStage()
 
-      /**
-       * Decode Instruction Logic
-       */
-      def decodeInstruction(instr: Int): DecodedInstruction = {
-        if (instr == NOP) {
-          DecodedInstruction(isNop = true)
+        // Compress Stage
+        compressStage()
+
+        // Decode Stage with Hazard Detection
+        if (!stall) {
+          decodeStageWithHazardDetection()
         } else {
-          val pred = (instr >> 27) & 0x0F // 4 bits for Pred (bits 30-27)
-          val opcode = (instr >> 22) & 0x1F // 5 bits (bits 26-22)
-          val rd = (instr >> 17) & 0x1F
-          val rs1 = (instr >> 12) & 0x1F
-          val rs2 = (instr >> 7) & 0x1F
-          val fixed_bits = (instr >> 4) & 0x07 // 3 bits (bits 6-4)
-          val func = instr & 0x0F // 4 bits (bits 3-0)
-
-          // *** Forwarding Logic ***
-          // Fetch operands using forwarding
-          val op1 = ForwardingUnit(rs1)
-          val op2 = ForwardingUnit(rs2)
-          // *** End Forwarding Logic ***
-
-          // Debugging Logs
-          println(s"\n[Decode] Decoding Instruction: 0x${instr.toHexString}")
-          println(s"[Decode] Decoded Fields:")
-          println(f"  pred: $pred%04d")
-          println(f"  opcode: $opcode%05d")
-          println(f"  rd: R$rd%02d")
-          println(f"  rs1: R$rs1%02d")
-          println(f"  rs2: R$rs2%02d")
-          println(f"  fixed_bits: $fixed_bits%03d")
-          println(f"  func: $func%04d")
-          println(s"[Decode] Operands:")
-          println(f"  op1 (R$rs1): $op1")
-          println(f"  op2 (R$rs2): $op2")
-
-          // Flags for new instructions
-          val isCompress = opcode == Compress
-          val isDecompress = opcode == Decompress
-          val isMul = opcode == Alu && fixed_bits == 0x2 // ALUm opcode with fixed bits '010'
-
-          DecodedInstruction(
-            pred = pred,
-            opcode = opcode,
-            rd = rd,
-            rs1 = rs1,
-            rs2 = rs2,
-            opc = 0, // Not used in ALUm; set to 0
-            imm12 = 0, // Not used in ALUm; set to 0
-            func = func,
-            op1 = op1,
-            op2 = op2,
-            isNop = false,
-            isCompress = isCompress,
-            isDecompress = isDecompress,
-            isMul = isMul && func == MUL,
-            isMulu = isMul && func == MULU,
-            result = 0 // To be updated in execute stage
-          )
+          println("[Tick] Pipeline is stalled. Inserting NOPs.")
+          // Insert NOPs by keeping DE_EX unchanged
+          de_ex = DE_EX()
+          stall = false // Remove stall after inserting NOP
         }
 
-        /**
-         * MEM Stage Execution
-         */
-        def memStage(): Unit = {
-          val memDataA = ex_mem.memDataA
-          val rdA = ex_mem.rdA
-          val validA = ex_mem.validA
-
-          val memDataB = ex_mem.memDataB
-          val rdB = ex_mem.rdB
-          val validB = ex_mem.validB
-
-          // Handle Load Typed (Ldt)
-          if (rdA != 0 && validA) {
-            val (hit, data) = l1Cache.access(memDataA, isLoad = true)
-            if (hit) {
-              // Data is already loaded via cache
-            } else {
-              // On miss, data is loaded as 0 (simulated)
-            }
-            println(s"[MEM Stage] Load Typed: Loaded data=$data from address $memDataA into R$rdA")
-            mem_wb = mem_wb.copy(
-              memDataA = data,
-              rdA = rdA,
-              validA = true
-            )
-          }
-
-          // Handle Store Typed (Stt)
-          if (rdB != 0 && validB) {
-            val dataToStore = reg(rdB)
-            l1Cache.access(memDataB, isLoad = false, writeData = dataToStore)
-            println(s"[MEM Stage] Store Typed: Stored data=$dataToStore to address $memDataB from R$rdB")
-            mem_wb = mem_wb.copy(
-              memDataB = dataToStore,
-              rdB = rdB,
-              validB = true
-            )
-          }
+        // Instruction Fetch Stage
+        if (!stall) {
+          fetchStage()
+        } else {
+          println("[Tick] Fetch stage is stalled. Not fetching new instructions.")
+          // Optionally, you can insert NOPs or handle accordingly
         }
 
-        /**
-         * Tick Function
-         */
-        def tick(): Unit = {
-          Metrics.totalCycles += 1
-          println(s"\n=== Tick ${Metrics.totalCycles} ===")
-
-          // Write Back Stage
-          writeBack()
-
-          // MEM Stage
-          memStage()
-
-          // Execute Stage
-          executeStage()
-
-          // Compress Stage
-          compressStage()
-
-          // Decode Stage with Hazard Detection
-          if (!stall) {
-            decodeStageWithHazardDetection()
-          } else {
-            println("[Tick] Pipeline is stalled. Inserting NOPs.")
-            // Insert NOPs by keeping DE_EX unchanged
-            de_ex = DE_EX()
-            stall = false // Remove stall after inserting NOP
-          }
-
-          // Instruction Fetch Stage
-          if (!stall) {
-            fetchStage()
-          } else {
-            println("[Tick] Fetch stage is stalled. Not fetching new instructions.")
-            // Optionally, you can insert NOPs or handle accordingly
-          }
-
-          // Check for halt condition
-          if (halt) {
-            println("Halt detected. Stopping simulation.")
-          } else {
-            // Log the state after each tick
-            log()
-          }
-        }
-
-        /**
-         * Log Register States
-         */
-        def log(): Unit = {
-          println(s"[Log] PC=$pc - Registers:")
-          for (i <- 0 until reg.length) {
-            print(s"R$i=${reg(i)} ")
-          }
-          println()
+        // Check for halt condition
+        if (halt) {
+          println("Halt detected. Stopping simulation.")
+        } else {
+          // Log the state after each tick
+          log()
         }
       }
 
       /**
-       * Companion Object with Main Method
+       * Log Register States
        */
-      object PatSimApp {
+      def log(): Unit = {
+        println(s"[Log] PC=$pc - Registers:")
+        for (i <- 0 until reg.length) {
+          print(s"R$i=${reg(i)} ")
+        }
+        println()
+      }
+    }
 
-        def main(args: Array[String]): Unit = {
-          println("Simulating Patmos with Enhanced Pipeline and L1 Cache")
-          if (args.length != 1)
-            throw new Error("Wrong Arguments, usage: PatSimApp <binary_input_file>")
-          val instr = readBin(args(0))
-          val simulator = new PatSim(instr)
-          println("Patmos start")
-          while (!simulator.halt) {
-            simulator.tick()
-          }
-          println("Simulation completed")
-          Metrics.printMetrics() // Print performance metrics
-          simulator.l1Cache.printCacheMetrics() // Print detailed cache metrics
+    /**
+     * Companion Object with Main Method
+     */
+    object PatSimApp {
+
+      def main(args: Array[String]): Unit = {
+        println("Simulating Patmos with Enhanced Pipeline and L1 Cache")
+        if (args.length != 1)
+          throw new Error("Wrong Arguments, usage: PatSimApp <binary_input_file>")
+        val instr = readBin(args(0))
+        val simulator = new PatSim(instr)
+        println("Patmos start")
+        while (!simulator.halt) {
+          simulator.tick()
+        }
+        println("Simulation completed")
+        Metrics.printMetrics() // Print performance metrics
+        simulator.l1Cache.printCacheMetrics() // Print detailed cache metrics
+      }
+
+      /**
+       * Read a binary file into an Array
+       * Reads binary data and assembles 4-byte words into Ints (big-endian)
+       */
+      def readBin(fileName: String): Array[Int] = {
+
+        println("Reading " + fileName)
+        // Open the file as a binary input stream
+        val inputStream = new java.io.FileInputStream(fileName)
+        val byteArray = new Array[Byte](inputStream.available())
+        inputStream.read(byteArray)
+        inputStream.close()
+
+        // Convert bytes to Ints (4 bytes per Int, big-endian)
+        val numInts = byteArray.length / 4
+        val arr = new Array[Int](numInts)
+        for (i <- 0 until numInts) {
+          val byte0 = byteArray(i * 4) & 0xFF
+          val byte1 = byteArray(i * 4 + 1) & 0xFF
+          val byte2 = byteArray(i * 4 + 2) & 0xFF
+          val byte3 = byteArray(i * 4 + 3) & 0xFF
+          arr(i) = (byte0 << 24) | (byte1 << 16) | (byte2 << 8) | byte3
         }
 
-        /**
-         * Read a binary file into an Array
-         * Reads binary data and assembles 4-byte words into Ints (big-endian)
-         */
-        def readBin(fileName: String): Array[Int] = {
-
-          println("Reading " + fileName)
-          // Open the file as a binary input stream
-          val inputStream = new java.io.FileInputStream(fileName)
-          val byteArray = new Array[Byte](inputStream.available())
-          inputStream.read(byteArray)
-          inputStream.close()
-
-          // Convert bytes to Ints (4 bytes per Int, big-endian)
-          val numInts = byteArray.length / 4
-          val arr = new Array[Int](numInts)
-          for (i <- 0 until numInts) {
-            val byte0 = byteArray(i * 4) & 0xFF
-            val byte1 = byteArray(i * 4 + 1) & 0xFF
-            val byte2 = byteArray(i * 4 + 2) & 0xFF
-            val byte3 = byteArray(i * 4 + 3) & 0xFF
-            arr(i) = (byte0 << 24) | (byte1 << 16) | (byte2 << 8) | byte3
-          }
-
-          // Ensure at least one instruction
-          if (arr.isEmpty) {
-            Array(NOP)
-          } else {
-            arr
-          }
+        // Ensure at least one instruction
+        if (arr.isEmpty) {
+          Array(NOP)
+        } else {
+          arr
         }
       }
     }
