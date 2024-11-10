@@ -183,7 +183,7 @@ swsim: $(BUILDDIR)/$(BOOTAPP).bin
 
 # ISA simulation with PatSim
 isasim: $(BUILDDIR)/$(BOOTAPP).bin
-	cd isasim; sbt "runMain patsim.PatSim $(BUILDDIR)/$(BOOTAPP).bin"
+	cd isasim; sbt "runMain patsim.PatSimApp $(BUILDDIR)/$(BOOTAPP).bin"
 
 # C simulation of the Chisel version of Patmos
 hwsim:

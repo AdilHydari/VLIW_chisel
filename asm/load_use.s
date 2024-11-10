@@ -1,13 +1,15 @@
 #
+# N/A: mts     s6 = r3
 # Test of load/use delay in stack memory
 #
 # Expected Result: 
 #   first load (in the load use delay slot) will get old value
 #   second load the correct value from memory
 #
+#
 	.word   72
 	addi    r3 = r0, 0x100
-	mts     s6 = r3
+
 	sres	10
 	addi	r1 = r0, 4
 	addi	r2 = r0, 2

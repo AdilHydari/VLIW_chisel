@@ -1,0 +1,2 @@
+[warn] No sbt.version set in project/build.properties, base directory: /home/patmos/t-crest/patmos/isasim
+[info] welcome to sbt 1.7.1 (Ubuntu Java 11.0.24)
